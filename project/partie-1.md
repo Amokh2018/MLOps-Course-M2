@@ -2,7 +2,7 @@
 #  “MLOps Project Template”
 
 
-Build an MLOps project Template 
+Build an MLOps project Template to train the DistilBERT model
 
 ---
 

@@ -18,6 +18,12 @@ torchvision>=0.18       # image transforms used in the ViT (vision) lab
 # --- Tokenizers needed by specific models ---
 sentencepiece>=0.2      # required by the T5 tokenizer (summarize-microservice)
 
+# --- ONNX export (client-side inference: transformers.js static Spaces) ---
+optimum>=2.1            # optimum-cli export onnx
+optimum-onnx>=0.1       # onnx exporter backend (split out of optimum's `exporters` extra)
+onnx>=1.22
+onnxruntime>=1.30        # also used to quantize (onnxruntime.quantization.quantize_dynamic)
+
 # --- Interfaces / serving ---
 gradio>=4.44            # Spaces: space/ (vision) and space_nlp/ (sentiment)
 fastapi==0.99.1         # summarize-microservice/webapp (version pinned by existing code)

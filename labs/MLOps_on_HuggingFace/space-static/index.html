@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>MLOps_BD_0509 — In-Browser Demo</title>
+        <meta name="description" content="Fully client-side text classification demo for AliMokh/MLOps_BD_0509, powered by transformers.js (ONNX Runtime Web, no server)">
+
+        <style>
+            :root { color-scheme: light dark; }
+            body {
+                margin: 0;
+                padding: 2rem 1rem;
+                min-height: 100vh;
+                box-sizing: border-box;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background: #fafafa;
+                color: #1a1a1a;
+            }
+            @media (prefers-color-scheme: dark) {
+                body { background: #111318; color: #e8e8e8; }
+                textarea { background: #1c1f26 !important; color: #e8e8e8 !important; border-color: #333 !important; }
+                .card { background: #191c22 !important; border-color: #2a2d35 !important; }
+                .bar-track { background: #2a2d35 !important; }
+            }
+            .wrap { max-width: 640px; margin: 0 auto; }
+            h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+            p.desc { color: #666; font-size: 0.9rem; line-height: 1.4; }
+            textarea {
+                width: 100%;
+                box-sizing: border-box;
+                font-size: 1rem;
+                padding: 0.75rem;
+                border-radius: 8px;
+                border: 1px solid #ccc;
+                resize: vertical;
+                font-family: inherit;
+            }
+            button {
+                margin-top: 0.75rem;
+                padding: 0.6rem 1.4rem;
+                font-size: 1rem;
+                border-radius: 8px;
+                border: none;
+                background: #2563eb;
+                color: white;
+                cursor: pointer;
+            }
+            button:disabled { background: #94a3b8; cursor: wait; }
+            .card {
+                margin-top: 1.25rem;
+                padding: 1rem;
+                border-radius: 10px;
+                border: 1px solid #e5e5e5;
+                background: white;
+            }
+            .row { display: flex; align-items: center; gap: 0.6rem; margin: 0.4rem 0; }
+            .row .label { width: 90px; font-size: 0.9rem; flex-shrink: 0; }
+            .bar-track { flex: 1; height: 10px; border-radius: 5px; background: #eee; overflow: hidden; }
+            .bar-fill { height: 100%; background: #2563eb; }
+            .row .score { width: 55px; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+            .status { font-size: 0.85rem; color: #666; margin-top: 0.5rem; min-height: 1.2em; }
+            .examples { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+            .examples button {
+                margin: 0;
+                padding: 0.35rem 0.7rem;
+                font-size: 0.8rem;
+                background: #eef2ff;
+                color: #2563eb;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="wrap">
+            <h1>🎬 MLOps_BD_0509 — live in your browser</h1>
+            <p class="desc">
+                Runs entirely client-side with
+                <a href="https://huggingface.co/docs/transformers.js" target="_blank" rel="noopener">transformers.js</a>
+                (ONNX Runtime Web / WASM) — no server, no API calls. The first
+                click downloads the quantized model (~65&nbsp;MB) once; it's
+                then cached by the browser.
+            </p>
+
+            <textarea id="input" rows="4" placeholder="Type a sentence to classify...">This movie was absolutely fantastic!</textarea>
+            <div class="examples">
+                <button data-example="This movie was absolutely fantastic, a real masterpiece!">Positive example</button>
+                <button data-example="A total waste of time, I fell asleep halfway through.">Negative example</button>
+            </div>
+            <br>
+            <button id="run">Classify</button>
+            <div class="status" id="status"></div>
+
+            <div class="card" id="result" style="display:none;"></div>
+        </div>
+
+        <script type="module">
+            import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
+
+            const MODEL_ID = "AliMokh/MLOps_BD_0509";
+            const statusEl = document.getElementById("status");
+            const resultEl = document.getElementById("result");
+            const runBtn = document.getElementById("run");
+            const inputEl = document.getElementById("input");
+
+            let classifierPromise = null;
+
+            function getClassifier() {
+                if (!classifierPromise) {
+                    statusEl.textContent = "Loading model (first run only)...";
+                    classifierPromise = pipeline("text-classification", MODEL_ID, {
+                        dtype: "q8",
+                        progress_callback: (p) => {
+                            if (p.status === "progress" && p.file) {
+                                const pct = p.total ? Math.round((p.loaded / p.total) * 100) : "";
+                                statusEl.textContent = `Downloading ${p.file}${pct !== "" ? ` (${pct}%)` : ""}...`;
+                            }
+                        },
+                    });
+                }
+                return classifierPromise;
+            }
+
+            async function classify() {
+                const text = inputEl.value.trim();
+                if (!text) return;
+
+                runBtn.disabled = true;
+                resultEl.style.display = "none";
+                try {
+                    const classifier = await getClassifier();
+                    statusEl.textContent = "Running inference...";
+                    const preds = await classifier(text, { top_k: null });
+
+                    resultEl.innerHTML = "";
+                    const maxScore = Math.max(...preds.map((p) => p.score));
+                    for (const p of preds) {
+                        const row = document.createElement("div");
+                        row.className = "row";
+                        row.innerHTML = `
+                            <span class="label">${p.label}</span>
+                            <span class="bar-track"><span class="bar-fill" style="width:${(p.score * 100).toFixed(1)}%"></span></span>
+                            <span class="score">${(p.score * 100).toFixed(1)}%</span>
+                        `;
+                        if (p.score === maxScore) row.style.fontWeight = "600";
+                        resultEl.appendChild(row);
+                    }
+                    resultEl.style.display = "block";
+                    statusEl.textContent = "Done.";
+                } catch (err) {
+                    console.error(err);
+                    statusEl.textContent = `Error: ${err.message || err}`;
+                } finally {
+                    runBtn.disabled = false;
+                }
+            }
+
+            runBtn.addEventListener("click", classify);
+            document.querySelectorAll(".examples button").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    inputEl.value = btn.dataset.example;
+                    classify();
+                });
+            });
+
+            // Warm the model load in the background as soon as the page opens.
+            getClassifier().then(() => { statusEl.textContent = "Model ready."; });
+        </script>
+    </body>
+</html>
