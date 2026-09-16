@@ -23,6 +23,9 @@ mlops-project/
 ├─ configs/
 │  └─ config.yaml                # paths, target, split, model/type/params
 ├─ src/
+│  ├─ config.py                # get the configuration as class
+│  ├─ get-data.py                # download the data
+│  ├─ preprocess.py              # preprocess the data
 │  ├─ pipeline.py                # build ColumnTransformer + model
 │  ├─ train.py                   # train + tune + MLflow autolog + registry
 │  ├─ evaluate.py                # final eval + plot & log artifacts
@@ -32,8 +35,10 @@ mlops-project/
 ├─ Makefile
 ├─ requirements.txt (or pyproject.toml)
 ├─ .env.example                  # MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME
+├─ Dockerfile
 └─ README.md
 ```
+
 
 **Makefile (example)**
 
@@ -86,52 +91,6 @@ cv:
 ```
 
 ---
-
-## Core code snippets
-
-**src/pipeline.py**
-
-```python
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-
-def build_pipeline(numeric, categorical, model_type="logreg"):
-    num = Pipeline(steps=[
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler())
-    ])
-    cat = Pipeline(steps=[
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-    ])
-    pre = ColumnTransformer(
-        transformers=[("num", num, numeric), ("cat", cat, categorical)]
-    )
-    if model_type == "logreg":
-        model = LogisticRegression(max_iter=500)
-    elif model_type == "random_forest":
-        model = RandomForestClassifier()
-    else:
-        raise ValueError("Unsupported model_type")
-    return Pipeline(steps=[("pre", pre), ("model", model)])
-```
-
-
-
-**tests/test\_pipeline.py**
-
-```python
-from src.pipeline import build_pipeline
-
-def test_build_pipeline():
-    pipe = build_pipeline(["a"], ["b"], "logreg")
-    assert "pre" in dict(pipe.named_steps)
-    assert "model" in dict(pipe.named_steps)
-```
 
 ---
 
