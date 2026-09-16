@@ -11,7 +11,7 @@ import gradio as gr
 from transformers import pipeline
 
 # 👉 À REMPLACER par votre propre repo (username/nom-du-modele)
-MODEL_ID = "YOUR_USERNAME/distilbert-sentiment-demo"
+MODEL_ID = "AliMokh/finetuning-sentiment-model-3000-samples"
 # REVISION = "production"  # décommentez pour servir la version promue
 
 classifier = pipeline("sentiment-analysis", model=MODEL_ID, truncation=True)
